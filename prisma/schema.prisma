@@ -1,0 +1,221 @@
+// Prisma schema for SecondLife Electronic Component Reuse Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  GUEST
+  USER
+  ADMIN
+}
+
+enum ComponentCondition {
+  NEW
+  GOOD
+  USED
+  DAMAGED
+}
+
+enum ProjectDifficulty {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum RecommendationStatus {
+  READY_TO_BUILD
+  NEAR_MATCH
+  PARTIAL_MATCH
+  LOW_MATCH
+}
+
+model User {
+  id                String             @id @default(uuid())
+  email             String             @unique
+  name              String
+  passwordHash      String
+  role              Role               @default(USER)
+  avatar            String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  inventory         Inventory[]
+  recommendations   Recommendation[]
+  completedProjects CompletedProject[]
+  favoriteProjects  FavoriteProject[]
+  wasteStatistics   WasteStatistic[]
+  notifications     Notification[]
+
+  @@map("users")
+}
+
+model Component {
+  id                   String             @id @default(uuid())
+  name                 String             @unique
+  category             String
+  manufacturer         String?
+  description          String
+  defaultUnit          String             @default("pcs")
+  condition            ComponentCondition @default(GOOD)
+  estimatedWeightGrams Float              @default(25.0)
+  estimatedCO2Grams    Float              @default(150.0)
+  datasheetUrl         String?
+  imageUrl             String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+
+  inventory            Inventory[]
+  projectRequirements  ProjectRequirement[]
+
+  @@index([category])
+  @@map("components")
+}
+
+model Inventory {
+  id           String             @id @default(uuid())
+  userId       String
+  componentId  String
+  quantity     Int                @default(1)
+  condition    ComponentCondition @default(GOOD)
+  location     String?
+  notes        String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  component    Component          @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, componentId])
+  @@index([userId])
+  @@map("inventories")
+}
+
+model Project {
+  id                         String             @id @default(uuid())
+  name                       String
+  slug                       String             @unique
+  description                String
+  longDescription            String?
+  difficulty                 ProjectDifficulty  @default(BEGINNER)
+  estimatedTimeHours         Float              @default(2.5)
+  category                   String
+  circuitDiagram             String?
+  imageUrl                   String?
+  estimatedWasteSavedGrams   Float              @default(120.0)
+  estimatedCO2ReductionGrams Float              @default(850.0)
+  tags                       String             // Comma-separated or JSON
+  instructions               String?            // Markdown or JSON steps
+  featured                   Boolean            @default(false)
+  createdAt                  DateTime           @default(now())
+  updatedAt                  DateTime           @updatedAt
+
+  requirements               ProjectRequirement[]
+  recommendations            Recommendation[]
+  completedProjects          CompletedProject[]
+  favoriteProjects           FavoriteProject[]
+
+  @@index([category])
+  @@index([difficulty])
+  @@map("projects")
+}
+
+model ProjectRequirement {
+  id               String    @id @default(uuid())
+  projectId        String
+  componentId      String
+  requiredQuantity Int       @default(1)
+  isOptional       Boolean   @default(false)
+  notes            String?
+
+  project          Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  component        Component @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, componentId])
+  @@index([projectId])
+  @@map("project_requirements")
+}
+
+model Recommendation {
+  id                      String               @id @default(uuid())
+  userId                  String
+  projectId               String
+  compatibilityPercentage Float
+  availableCount          Int
+  totalRequiredCount      Int
+  missingComponentsJson   String
+  status                  RecommendationStatus
+  createdAt               DateTime             @default(now())
+  updatedAt               DateTime             @updatedAt
+
+  user                    User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project                 Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId, status])
+  @@map("recommendations")
+}
+
+model WasteStatistic {
+  id                   String   @id @default(uuid())
+  userId               String
+  componentsReusedCount Int     @default(0)
+  wasteSavedGrams      Float    @default(0)
+  co2ReducedGrams      Float    @default(0)
+  recordedAt           DateTime @default(now())
+
+  user                 User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("waste_statistics")
+}
+
+model CompletedProject {
+  id           String    @id @default(uuid())
+  userId       String
+  projectId    String
+  rating       Int?
+  notes        String?
+  completedAt  DateTime  @default(now())
+
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project      Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@map("completed_projects")
+}
+
+model FavoriteProject {
+  id        String   @id @default(uuid())
+  userId    String
+  projectId String
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([userId])
+  @@map("favorite_projects")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  type      String   @default("info")
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("notifications")
+}

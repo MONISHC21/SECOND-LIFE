@@ -1,0 +1,6 @@
+{
+  "name": "SecondLife",
+  "description": "Component-to-project discovery and reuse platform that matches unused electronics with buildable projects, calculates feasibility, and reduces e-waste.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

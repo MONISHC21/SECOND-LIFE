@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: secondlife_db
+    restart: always
+    environment:
+      POSTGRES_USER: secondlife_user
+      POSTGRES_PASSWORD: secondlife_password
+      POSTGRES_DB: secondlife
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U secondlife_user -d secondlife"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: secondlife_app
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DATABASE_URL: postgresql://secondlife_user:secondlife_password@postgres:5432/secondlife?schema=public
+      JWT_SECRET: secondlife-production-jwt-secret-key-2026
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
